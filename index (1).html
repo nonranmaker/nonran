@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>논란 헤드라인 생성기</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@700;900&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:#f3efe6;color:#1a1a1a;font-family:'Noto Sans KR',sans-serif;display:flex;justify-content:center;padding:28px 16px}
+  .wrap{width:100%;max-width:560px}
+  .mast{border-top:4px solid #1a1a1a;border-bottom:1px solid #1a1a1a;padding:10px 0 8px;text-align:center;margin-bottom:22px}
+  .mast h1{font-family:'Noto Serif KR',serif;font-weight:900;font-size:30px;margin:0;letter-spacing:-1px}
+  .mast small{font-size:12px;color:#666}
+  .row{display:flex;gap:8px;margin-bottom:18px}
+  input{flex:1;padding:12px 14px;font-size:16px;border:2px solid #1a1a1a;background:#fff;border-radius:0;font-family:inherit}
+  button{padding:12px 16px;font-size:15px;font-weight:700;border:2px solid #1a1a1a;background:#1a1a1a;color:#fff;cursor:pointer;font-family:inherit}
+  button.ghost{background:#fff;color:#1a1a1a}
+  button:active{transform:translateY(1px)}
+  .card{background:#fff;border:2px solid #1a1a1a;padding:26px 20px;min-height:140px;display:flex;flex-direction:column;justify-content:center}
+  .tag{display:inline-block;background:#c8102e;color:#fff;font-size:12px;font-weight:700;padding:3px 8px;margin-bottom:10px;align-self:flex-start}
+  .tag.empty{display:none}
+  .hl{font-family:'Noto Serif KR',serif;font-weight:900;font-size:24px;line-height:1.45;word-break:keep-all}
+  .hl b{background:linear-gradient(transparent 60%,#ffe066 60%)}
+  .meta{margin-top:14px;font-size:12px;color:#888}
+  .actions{display:flex;gap:8px;margin-top:12px}
+  .actions button{flex:1}
+  .req{display:block;margin-top:14px;padding:12px;text-align:center;border:2px dashed #c8102e;color:#c8102e;font-weight:700;text-decoration:none;background:#fff8f0}
+  .req:active{transform:translateY(1px)}
+  .hist{margin-top:22px}
+  .hist h2{font-size:13px;border-bottom:1px solid #1a1a1a;padding-bottom:4px;margin:0 0 8px}
+  .hist li{font-size:14px;padding:6px 0;border-bottom:1px dashed #ccc;list-style:none}
+  .hist ul{padding:0;margin:0}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;padding:20px;z-index:9;flex-direction:column;gap:12px}
+  .modal.on{display:flex}
+  .modal img{max-width:100%;max-height:70vh;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .modal p{color:#ddd;font-size:13px;margin:0}
+  .modal .mrow{display:flex;gap:8px}
+  .toast{z-index:10;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:8px 14px;font-size:13px;opacity:0;transition:opacity .2s}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mast"><h1>논란일보</h1><small>※ 본 기사는 100% 지어낸 농담입니다</small></div>
+  <div class="row">
+    <input id="name" placeholder="이름 입력" maxlength="20">
+    <button id="go">논란 생성</button>
+  </div>
+  <div class="card">
+    <span class="tag empty" id="tag"></span>
+    <div class="hl" id="hl">이름을 넣고 눌러 보세요.</div>
+    <div class="meta" id="meta"></div>
+  </div>
+  <div class="actions">
+    <button class="ghost" id="again">다시 뽑기</button>
+    <button class="ghost" id="copy">복사</button>
+    <button id="img">이미지 저장</button>
+  </div>
+  <a class="req" href="https://docs.google.com/forms/d/e/1FAIpQLSeRA7o7A-n-zwxhpqssOrzsFpj1o2SLERGgUqG_deXg6PlTEQ/viewform?usp=header" target="_blank" rel="noopener">📮 제보하기 — 논란거리 신청</a>
+  <div class="hist"><h2>지난 기사</h2><ul id="list"></ul></div>
+</div>
+<div class="modal" id="modal"><img id="pv" alt="기사 이미지"><p id="mhint">이미지를 길게 눌러도 저장할 수 있어요</p><div class="mrow"><button id="dl">이미지 저장</button><button class="ghost" id="share" style="display:none">공유</button><button class="ghost" id="close">닫기</button></div></div>
+<div class="toast" id="toast">복사됨</div>
+
+<script>
+// {n:최소-최대} = 범위 내 랜덤 숫자, {k:가|나|다} = 키워드 랜덤, {N} = 이름
+const T = [
+  "[단독] {N}, 조별과제 {n:2-6}주간 \"확인했어\" 한마디로 버텨…",
+  "[단독] {N} 냉장고서 남의 이름 적힌 {k:푸딩|요거트|바나나우유|마카롱|컵라면} {n:3-12}개 발견",
+  "[단독] {N} 휴대폰 메모장서 \"{k:복수 리스트|살생부|손절 예정자|빚 장부}\" 발견… 지인 {n:4-15}명 이름 올라",
+  "[단독] {N}, 생일 선물로 받은 {k:기프티콘|문상|스벅 쿠폰|치킨 쿠폰} 유효기간 넘겨 그대로 폐기",
+  "[속보] {N}, {k:단톡방|디스코드 서버|반 단톡|길드 채팅} 나갔다 {n:1-5}분 만에 재입장… \"실수였다\"",
+  "[속보] {N}, 노래방서 마이크 독점 {n:2-5}시간째… 경찰 \"개입 어렵다\"",
+  "[속보] {N}, {k:피자|치킨|탕수육|떡볶이} 마지막 조각 두고 \"아무도 안 먹을 거지?\" 0.{n:1-9}초 만에 섭취",
+  "\"그건 빌린 게 아니라 나눈 것\" {N}, {n:1-5}년 전 빌린 {k:5천 원|만 원|3만 원|천 원} 질문에 철학적 답변",
+  "{N} 측 \"{k:PC방|노래방|침대|유튜브} {n:4-12}시간은 운동이었다\" 공식 입장",
+  "{N} 측 \"알람 {n:5-15}개 못 들은 건 깊은 수면 탓\" 해명",
+  "{N}, 자필 사과문 공개… 맞춤법 {n:7-25}개 틀려 2차 논란",
+  "{N}, 사과 영상 공개했으나 배경에 문제의 {k:과자|컵라면|게임기|치킨 박스} 그대로 놓여 있어",
+  "충격… {N} 친구 목록, {k:전원|절반|90%} 부캐로 밝혀져",
+  "충격… {N} \"곧 도착\"의 평균 실제 도착 시간 {n:30-90}분으로 드러나",
+  "{N}, \"나 그거 안 좋아해\" 발언했으나 플레이리스트에 같은 노래 {n:150-800}회 재생 기록",
+  "{N}, \"1일 1샤워\" 주장했으나 목격자 {n:2-7}명 증언 엇갈려",
+  "지인 {n:70-99}% \"{N}와 {k:노래방|PC방|여행|조별과제} 다시는 안 가\"",
+  "지인 {n:80-99}% \"{N}의 '나 혼자 갈게'는 결국 같이 가자는 뜻\"",
+  "{N} 게임 승률 {n:3-19}%… 전문가 \"팀원 탓 아냐\"",
+  "{N} 카톡 답장 평균 소요 시간 {n:3-11}시간… 같은 시각 {k:롤|발로란트|메이플|림버스} 접속 기록",
+  "[인터뷰] 룸메이트 {k:A|B|C|D}씨 \"{N} 설거지 당번 날엔 {k:그릇이|숟가락이|냄비가|컵이} 사라진다\"",
+  "[현장] {N} {k:가챠|자취방|책상 서랍|가방 속} 목격한 지인 \"{k:눈빛이 달랐다|말을 잃었다|아직도 잠이 안 온다}\"",
+  "{N} 논란 {n:2-9}일째… \"반성은커녕 또 {k:치킨 무|남의 감자튀김|콜라 마지막 모금} 가져가\"",
+  "{N} 논란 {n:2-7}일째… 해명 글 올렸다가 오타로 재삭제",
+  "[사설] {N}의 \"{k:5분만|10분만|한 판만|한 입만}\"은 언제까지 용인되어야 하는가",
+  "[기자수첩] 우리는 왜 또 {k:{N}에게 돈을 빌려주는가|{N}의 맛집 추천을 믿었는가|{N}에게 길 안내를 맡겼는가}",
+  "{N}, \"땅따먹기 하자\" 하더니 맨홀 {n:1-4}개 점령 논란",
+  "{N}, \"숨바꼭질 하자\" 하더니 {n:2-6}시간째 귀가… 술래 아직 찾는 중",
+  "{N}, \"얼음땡 하자\" 하더니 술래 냉동실에 가둬 논란",
+  "{N}, \"가위바위보 하자\" 하더니 진짜 가위 꺼내 논란",
+  "[포토] 단체사진서 홀로 눈 감은 {N}… {n:4-12}번째"
+];
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const rnd=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+let last=-1, cur="", st=null;
+function make(name){
+  let i; do{i=rnd(0,T.length-1)}while(i===last&&T.length>1); last=i;
+  let s=T[i].replace(/\{N\}/g,"§");
+  s=s.replace(/\{n:(\d+)-(\d+)\}/g,(_,a,b)=>rnd(+a,+b));
+  s=s.replace(/\{k:([^}]+)\}/g,(_,l)=>pick(l.split("|")));
+  // 이름 받침에 따라 '와/과' 보정
+  const ch=name.charCodeAt(name.length-1);
+  const has=ch>=0xAC00&&ch<=0xD7A3&&(ch-0xAC00)%28!==0;
+  s=s.replace(/§와/g,"§"+(has?"과":"와"));
+  return s.split("§").join("\u0000"+name+"\u0001");
+}
+const $=id=>document.getElementById(id);
+function esc(t){return t.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function gen(){
+  const name=$("name").value.trim()||"○○○";
+  const raw=make(name);
+  cur=raw.replace(/[\u0000\u0001]/g,"");
+  const m=cur.match(/^\[([^\]]+)\]\s*/);
+  const tag=$("tag");
+  let body=raw;
+  if(m){tag.textContent=m[1];tag.classList.remove("empty");body=raw.replace(/^\[[^\]]+\]\s*/,"")}
+  else if(cur.startsWith("충격")){tag.textContent="충격";tag.classList.remove("empty")}
+  else{tag.classList.add("empty")}
+  st={tag:tag.classList.contains("empty")?"":tag.textContent,body,name};
+  $("hl").innerHTML=esc(body).replace(/\u0000/g,"<b>").replace(/\u0001/g,"</b>");
+  const d=new Date();
+  st.rep=pick(["김논란","이의혹","박단독","최속보","정찌라시","한루머"]);
+  st.date=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+  st.no=rnd(1000,9999);
+  $("meta").textContent=`논란일보 · ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()} · 기자 ${st.rep}`;
+  const li=document.createElement("li");li.textContent=cur;
+  const ul=$("list");ul.prepend(li);while(ul.children.length>10)ul.lastChild.remove();
+}
+$("go").onclick=gen;$("again").onclick=gen;
+$("name").addEventListener("keydown",e=>{if(e.key==="Enter")gen()});
+$("copy").onclick=async()=>{
+  if(!cur)return;
+  try{await navigator.clipboard.writeText(cur);$("toast").textContent="복사됨"}catch(e){$("toast").textContent="복사 실패 — 길게 눌러 복사해 주세요"}
+  $("toast").classList.add("on");setTimeout(()=>$("toast").classList.remove("on"),1200);
+};
+
+// ---------- 이미지 ----------
+function toast(t){$("toast").textContent=t;$("toast").classList.add("on");setTimeout(()=>$("toast").classList.remove("on"),1400)}
+function wrapRich(ctx,raw,maxW){
+  // raw: 이름 구간이 \u0000..\u0001 로 감싸진 문자열 → [{ch,hi}] 줄 배열
+  const cells=[];let hi=false;
+  for(const c of raw){if(c==="\u0000"){hi=true;continue}if(c==="\u0001"){hi=false;continue}cells.push({c,hi})}
+  const words=[];let w=[];
+  cells.forEach(x=>{if(x.c===" "){if(w.length)words.push(w);w=[];words.push([x])}else w.push(x)});
+  if(w.length)words.push(w);
+  const lines=[];let line=[],lw=0;
+  const wid=arr=>ctx.measureText(arr.map(x=>x.c).join("")).width;
+  for(const wd of words){
+    const isSp=wd.length===1&&wd[0].c===" ";
+    const ww=wid(wd);
+    if(lw+ww<=maxW){line.push(...wd);lw+=ww;continue}
+    if(isSp){lines.push(line);line=[];lw=0;continue}
+    if(ww>maxW){for(const x of wd){const cw=wid([x]);if(lw+cw>maxW){lines.push(line);line=[];lw=0}line.push(x);lw+=cw}continue}
+    lines.push(line);line=[...wd];lw=ww;
+  }
+  if(line.length)lines.push(line);
+  return lines.map(l=>{while(l.length&&l[l.length-1].c===" ")l.pop();while(l.length&&l[0].c===" ")l.shift();return l});
+}
+async function render(){
+  try{await document.fonts.load('900 80px "Noto Serif KR"');await document.fonts.load('700 30px "Noto Sans KR"')}catch(e){}
+  const W=1080,H=1350,c=document.createElement("canvas");c.width=W;c.height=H;
+  const x=c.getContext("2d");
+  // 종이
+  x.fillStyle="#f1ead8";x.fillRect(0,0,W,H);
+  for(let i=0;i<9000;i++){x.fillStyle=`rgba(90,70,30,${Math.random()*.05})`;x.fillRect(Math.random()*W,Math.random()*H,2,2)}
+  const g=x.createRadialGradient(W/2,H/2,H*.3,W/2,H/2,H*.8);g.addColorStop(0,"rgba(0,0,0,0)");g.addColorStop(1,"rgba(80,55,20,.18)");x.fillStyle=g;x.fillRect(0,0,W,H);
+  const M=80,ink="#161412";x.fillStyle=ink;x.strokeStyle=ink;x.textBaseline="alphabetic";
+  // 제호
+  x.lineWidth=10;x.beginPath();x.moveTo(M,90);x.lineTo(W-M,90);x.stroke();
+  x.textAlign="center";x.font='900 128px "Noto Serif KR"';x.fillText("논란일보",W/2,235);
+  x.font='700 22px "Noto Sans KR"';x.fillText("THE CONTROVERSY DAILY · 아니면 말고",W/2,278);
+  x.lineWidth=2;x.beginPath();x.moveTo(M,305);x.lineTo(W-M,305);x.stroke();
+  x.textAlign="left";x.font='400 22px "Noto Sans KR"';x.fillText(`${st.date}`,M,340);
+  x.textAlign="right";x.fillText(`제${st.no}호 · 정가 0원`,W-M,340);
+  x.lineWidth=6;x.beginPath();x.moveTo(M,362);x.lineTo(W-M,362);x.stroke();
+  x.lineWidth=1.5;x.beginPath();x.moveTo(M,372);x.lineTo(W-M,372);x.stroke();
+  // 태그
+  let y=450;x.textAlign="left";
+  if(st.tag){x.font='700 34px "Noto Sans KR"';const tw=x.measureText(st.tag).width+36;x.fillStyle="#c8102e";x.fillRect(M,y-40,tw,54);x.fillStyle="#fff";x.fillText(st.tag,M+18,y);y+=105}else y+=40;
+  // 헤드라인 (길이에 따라 크기 조절)
+  const len=st.body.replace(/[\u0000\u0001]/g,"").length;
+  const fs=len>40?74:len>30?84:96, lh=fs*1.32;
+  x.font=`900 ${fs}px "Noto Serif KR"`;
+  const lines=wrapRich(x,st.body,W-M*2);
+  for(const l of lines){
+    let cx=M;
+    // 이름 형광펜
+    for(const s of l){const cw=x.measureText(s.c).width;if(s.hi){x.fillStyle="rgba(255,214,0,.85)";x.fillRect(cx-2,y-fs*.32,cw+4,fs*.42)}cx+=cw}
+    cx=M;x.fillStyle=ink;
+    for(const s of l){x.fillText(s.c,cx,y);cx+=x.measureText(s.c).width}
+    y+=lh;
+  }
+  // 리드
+  y+=10;x.lineWidth=2;x.beginPath();x.moveTo(M,y);x.lineTo(M+160,y);x.stroke();y+=58;
+  x.font='400 30px "Noto Serif KR"';x.fillStyle="#3a352e";
+  const leads=["관계자에 따르면 해당 사안은 이미 수차례 반복된 것으로 알려졌다.","당사자는 현재 연락이 닿지 않고 있다.","주변인들은 \"언젠가 터질 일이었다\"며 말을 아꼈다.","누리꾼들은 \"예상했다\", \"하루 이틀 일이 아니다\" 등의 반응을 보였다."];
+  const lead=`【논란일보=${st.rep} 기자】 `+pick(leads);
+  x.font='400 30px "Noto Sans KR"';
+  for(const l of wrapRich(x,lead,W-M*2)){if(y>H-190)break;x.fillText(l.map(s=>s.c).join(""),M,y);y+=46}
+  // 도장
+  x.save();x.translate(W-M-95,H-235);x.rotate(-.22);
+  x.strokeStyle="rgba(200,16,46,.82)";x.fillStyle="rgba(200,16,46,.82)";
+  x.lineWidth=7;x.beginPath();x.arc(0,0,82,0,Math.PI*2);x.stroke();
+  x.lineWidth=2.5;x.beginPath();x.arc(0,0,68,0,Math.PI*2);x.stroke();
+  x.textAlign="center";x.font='900 46px "Noto Serif KR"';x.fillText("논란",0,6);
+  x.font='700 17px "Noto Sans KR"';x.fillText("확인 안 됨",0,36);
+  x.restore();
+  // 하단
+  x.fillStyle=ink;x.lineWidth=3;x.beginPath();x.moveTo(M,H-110);x.lineTo(W-M,H-110);x.stroke();
+  x.textAlign="left";x.font='700 22px "Noto Sans KR"';x.fillText("※ 본 기사는 100% 지어낸 농담입니다",M,H-70);
+  x.textAlign="right";x.font='400 22px "Noto Sans KR"';x.fillText("무단 전재 환영 · 재배포 권장",W-M,H-70);
+  return c;
+}
+let dl=null,blob=null;
+const inClaude=typeof window.claude!=="undefined"&&window.claude&&typeof window.claude.use==="function";
+(async()=>{if(!inClaude)return;try{dl=await claude.use("downloads")}catch(e){dl=null}})();
+$("img").onclick=async()=>{
+  if(!st){toast("먼저 논란을 생성해 주세요");return}
+  const c=await render();
+  $("pv").src=c.toDataURL("image/png");
+  blob=await new Promise(r=>c.toBlob(r,"image/png"));
+  const fname=`논란일보_${st.name}.png`;
+  try{const f=new File([blob],fname,{type:"image/png"});$("share").style.display=(navigator.canShare&&navigator.canShare({files:[f]}))?"":"none"}catch(e){$("share").style.display="none"}
+  $("dl").style.display=(inClaude&&!dl)?"none":"";
+  $("mhint").textContent="버튼이 안 되면 이미지를 길게 눌러(또는 우클릭) 저장하세요";
+  $("modal").classList.add("on");
+};
+$("dl").onclick=async()=>{
+  if(!blob)return;
+  const fname=`논란일보_${st.name}.png`;
+  if(dl){
+    try{await dl.save({filename:fname,data:blob});toast("저장됨")}
+    catch(e){if(e&&e.code==="declined")return;if(e&&e.code==="rate_limited"){toast("잠시 후 다시 시도해 주세요");return}$("dl").style.display="none";toast("여기선 파일 저장이 안 돼요 — 길게 눌러 저장해 주세요")}
+    return;
+  }
+  // 일반 웹(GitHub Pages 등): 바로 다운로드
+  const url=URL.createObjectURL(blob);const a=document.createElement("a");
+  a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000);toast("저장됨");
+};
+$("share").onclick=async()=>{
+  if(!blob)return;
+  try{await navigator.share({files:[new File([blob],`논란일보_${st.name}.png`,{type:"image/png"})],title:"논란일보"})}
+  catch(e){if(e&&e.name==="AbortError")return;toast("공유가 안 돼요 — 저장 후 보내 주세요")}
+};
+$("close").onclick=()=>$("modal").classList.remove("on");
+$("modal").onclick=e=>{if(e.target.id==="modal")$("modal").classList.remove("on")};
+</script>
+</body>
+</html>
