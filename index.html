@@ -25,6 +25,8 @@
   .meta{margin-top:14px;font-size:12px;color:#888}
   .actions{display:flex;gap:8px;margin-top:12px}
   .actions button{flex:1}
+  .req{display:block;margin-top:14px;padding:12px;text-align:center;border:2px dashed #c8102e;color:#c8102e;font-weight:700;text-decoration:none;background:#fff8f0}
+  .req:active{transform:translateY(1px)}
   .hist{margin-top:22px}
   .hist h2{font-size:13px;border-bottom:1px solid #1a1a1a;padding-bottom:4px;margin:0 0 8px}
   .hist li{font-size:14px;padding:6px 0;border-bottom:1px dashed #ccc;list-style:none}
@@ -55,6 +57,7 @@
     <button class="ghost" id="copy">복사</button>
     <button id="img">이미지 저장</button>
   </div>
+  <a class="req" href="https://docs.google.com/forms/d/e/1FAIpQLSeRA7o7A-n-zwxhpqssOrzsFpj1o2SLERGgUqG_deXg6PlTEQ/viewform?usp=header" target="_blank" rel="noopener">📮 제보하기 — 논란거리 신청</a>
   <div class="hist"><h2>지난 기사</h2><ul id="list"></ul></div>
 </div>
 <div class="modal" id="modal"><img id="pv" alt="기사 이미지"><p id="mhint">이미지를 길게 눌러도 저장할 수 있어요</p><div class="mrow"><button id="dl">이미지 저장</button><button class="ghost" id="share" style="display:none">공유</button><button class="ghost" id="close">닫기</button></div></div>
